@@ -1,7 +1,9 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Net.WebSockets;
 using System.Text;
-using System.Windows.Forms;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace WebSocketServer
 {
@@ -33,20 +35,40 @@ namespace WebSocketServer
 
                     Console.WriteLine("Client connected.");
 
-                    while (webSocket.State == WebSocketState.Open)
+                    try
                     {
-                        ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[1024]);
-                        WebSocketReceiveResult result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
-                        if (result.MessageType == WebSocketMessageType.Text)
+                        while (webSocket.State == WebSocketState.Open)
                         {
-                            string message = Encoding.UTF8.GetString(buffer.Array, 0, result.Count);
-                            Console.WriteLine($"Received: {message}");
+                            ArraySegment<byte> buffer = new ArraySegment<byte>(new byte[1024]);
+                            WebSocketReceiveResult result = await webSocket.ReceiveAsync(buffer, CancellationToken.None);
+                            if (result.MessageType == WebSocketMessageType.Text)
+                            {
+                                string message = Encoding.UTF8.GetString(buffer.Array, 0, result.Count);
+                                Console.WriteLine($"Received: {message}");
 
-                            MessageBox.Show(message);
+                                // send the response at the client, by adding the current date just to make an example
+                                DateTime time = DateTime.Now;
 
-                            // Invia una risposta al client
-                            await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes("Echo: " + message)), WebSocketMessageType.Text, true, CancellationToken.None);
+                                var responseMessage = "Response to message " + message + " at " + time.ToString();
+
+                                // Invia una risposta al client
+                                await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(responseMessage)), WebSocketMessageType.Text, true, CancellationToken.None);
+                            }
                         }
+                    }
+                    catch (WebSocketException ex)
+                    {
+                        Console.WriteLine("WebSocket error: " + ex.Message);
+                        // Handle the disconnection gracefully
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Unexpected error: " + ex.Message);
+                    }
+                    finally
+                    {
+                        // Clean up resources
+                        webSocket.Dispose();
                     }
 
                     Console.WriteLine("Client disconnected.");
